@@ -142,8 +142,8 @@ final class Span implements DataPoints {
                                  final KeyValue row) {
     final long base_time = Bytes.getUnsignedInt(row.key(), metric_width);
     final byte[] qual = row.qualifier();
-    final short last_delta = (short)
-      (Bytes.getUnsignedShort(qual, qual.length - 2) >>> Const.FLAG_BITS);
+    final long last_delta = 
+      Bytes.getUnsignedInt(qual, qual.length - 4) >>> Const.FLAG_BITS;
     return base_time + last_delta;
   }
 

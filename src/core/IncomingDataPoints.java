@@ -61,7 +61,7 @@ final class IncomingDataPoints implements WritableDataPoints {
    * in bytes).  The remaining MSBs store a delta in seconds from the base
    * timestamp stored in the row key.
    */
-  private short[] qualifiers;
+  private int[] qualifiers;
 
   /** Each value in the row. */
   private long[] values;
@@ -78,7 +78,7 @@ final class IncomingDataPoints implements WritableDataPoints {
    */
   IncomingDataPoints(final TSDB tsdb) {
     this.tsdb = tsdb;
-    this.qualifiers = new short[3];
+    this.qualifiers = new int[3];
     this.values = new long[3];
   }
 
@@ -219,7 +219,7 @@ final class IncomingDataPoints implements WritableDataPoints {
     }
 
     // Java is so stupid with its auto-promotion of int to float.
-    final short qualifier = (short) ((timestamp - base_time) << Const.FLAG_BITS
+    final int qualifier = (int) ((timestamp - base_time) << Const.FLAG_BITS
                                      | flags);
     qualifiers[size] = qualifier;
     values[size] = (value.length == 8
@@ -228,7 +228,7 @@ final class IncomingDataPoints implements WritableDataPoints {
     size++;
 
     final PutRequest point = new PutRequest(tsdb.table, row, TSDB.FAMILY,
-                                            Bytes.fromShort(qualifier),
+                                            Bytes.fromInt(qualifier),
                                             value);
     // TODO(tsuna): The following timing is rather useless.  First of all,
     // the histogram never resets, so it tends to converge to a certain
@@ -353,8 +353,8 @@ final class IncomingDataPoints implements WritableDataPoints {
     }
   }
 
-  private static short delta(final short qualifier) {
-    return (short) ((qualifier & 0xFFFF) >>> Const.FLAG_BITS);
+  private static int delta(final int qualifier) {
+    return (qualifier & 0xFFFFFFFF) >>> Const.FLAG_BITS;
   }
 
   public long timestamp(final int i) {

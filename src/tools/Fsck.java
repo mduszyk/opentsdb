@@ -149,13 +149,13 @@ final class Fsck {
             }
             byte[] value = kv.value();
             final byte[] qual = kv.qualifier();
-            if (qual.length < 2) {
+            if (qual.length < 4) {
               errors++;
-              LOG.error("Invalid qualifier, must be on 2 bytes or more.\n\t"
+              LOG.error("Invalid qualifier, must be on 4 bytes or more.\n\t"
                         + kv);
               continue;
-            } else if (qual.length > 2) {
-              if (qual.length % 2 != 0) {
+            } else if (qual.length > 4) {
+              if (qual.length % 4 != 0) {
                 errors++;
                 LOG.error("Invalid qualifier for a compacted row, length ("
                           + qual.length + ") must be even.\n\t" + kv);
@@ -168,12 +168,12 @@ final class Fsck {
                 continue;
               }
               // Check all the compacted values.
-              short last_delta = -1;
+              int last_delta = -1;
               short val_idx = 0;  // Where are we in `value'?
               boolean ooo = false;  // Did we find out of order data?
-              for (int i = 0; i < qual.length; i += 2) {
-                final short qualifier = Bytes.getShort(qual, i);
-                final short delta = (short) ((qualifier & 0xFFFF)
+              for (int i = 0; i < qual.length; i += 4) {
+                final int qualifier = Bytes.getInt(qual, i);
+                final int delta = (int) ((qualifier & 0xFFFFFFFF)
                                              >>> Internal.FLAG_BITS);
                 if (delta <= last_delta) {
                   ooo = true;
@@ -216,9 +216,9 @@ final class Fsck {
                 }
               }
               continue;  // We done checking a compacted value.
-            } // else: qualifier is on 2 bytes, it's an individual value.
-            final short qualifier = Bytes.getShort(qual);
-            final short delta = (short) ((qualifier & 0xFFFF) >>> Internal.FLAG_BITS);
+            } // else: qualifier is on 4 bytes, it's an individual value.
+            final int qualifier = Bytes.getInt(qual);
+            final int delta = (int) ((qualifier & 0xFFFFFFFF) >>> Internal.FLAG_BITS);
             final long timestamp = base_time + delta;
             if (value.length > 8) {
               errors++;
