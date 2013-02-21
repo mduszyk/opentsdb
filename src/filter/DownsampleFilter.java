@@ -1,7 +1,12 @@
 package net.opentsdb.filter;
 
+import java.util.ArrayList;
 import java.nio.ByteBuffer;
+import java.io.IOException;
+import java.io.DataInput;
+import java.io.DataOutput;
 
+import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.filter.ParseFilter;
 import org.apache.hadoop.hbase.KeyValue;
@@ -12,8 +17,9 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class DownsampleFilter extends FilterBase {
     
-  public static final byte[] DOWNSAMPLE_FILTER = "net.opentsdb.filter.DownsampleFilter"
-    .getBytes("ISO-8859-1");
+  public static final byte[] DOWNSAMPLE_FILTER = {
+    'n', 'e', 't', '.', 'o', 'p', 'e', 'n', 't', 's', 'd', 'b', '.', 'f', 'i', 'l', 't', 'e',
+    'r', '.', 'D', 'o', 'w', 'n', 's', 'a', 'm', 'p', 'l', 'e', 'F', 'i', 'l', 't', 'e', 'r'};
     
   /** Number of LSBs in time_deltas reserved for flags.  */
   static final short FLAG_BITS = 4;
@@ -21,32 +27,35 @@ public class DownsampleFilter extends FilterBase {
   private byte[] interval_buf;  
   private int interval;
   private int lastDelta;
+  
+  public DownsampleFilter() {}
 
   public DownsampleFilter(byte[] interval_buf) {
     this.interval_buf = interval_buf;
-    interval = toInt(interval_buf);
+    interval = toInt(interval_buf, 0, 4);
+    lastDelta = 0;
+  }
+  
+  public void reset() {
     lastDelta = 0;
   }
   
   /**
    * Get int from big endian
    */
-  private int toInt(byte[] buf) {
+  private int toInt(byte[] buf, int i, int j) {
     int val = 0;
-    for (int i = 0; i < buf.length; i++)
-      val = (val << 8) | (buf[i] & 0xFF);
+    for (int k = i; k < j; k++)
+      val = (val << 8) | (buf[k] & 0xFF);
     return val;
   }
 
   @Override
   public ReturnCode filterKeyValue(KeyValue v) {
-    int length = v.getQualifierLength();
-    if (length > 0) {
+    if (v.getQualifierLength() > 0) {
       int offset = v.getQualifierOffset();
-      byte[] buf = v.getBuffer();
-      
       // read big endian qualifier bytes into int variable
-      int delta = toInt(buf);
+      int delta = toInt(v.getBuffer(), offset, offset + 2);
       // get rid of flag bits
       delta = (int) ((delta & 0xFFFFFFFF) >>> FLAG_BITS);
       
@@ -60,13 +69,13 @@ public class DownsampleFilter extends FilterBase {
   }
   
   public byte[] toByteArray() {
-    byte[] array = new byte[(1 + 36 + 1 + 4)];  
+    byte[] array = new byte[42];
     
     final ByteBuffer buf = ByteBuffer.wrap(array);
     buf.put((byte) DOWNSAMPLE_FILTER.length); //1
     buf.put(DOWNSAMPLE_FILTER); //36
-    buf.writeByte((byte) interval_buf.length); //1
-    buf.writeBytes(interval_buf); //4
+    buf.put((byte) interval_buf.length); //1
+    buf.put(interval_buf); //4
     
     return array;
   }
@@ -84,7 +93,7 @@ public class DownsampleFilter extends FilterBase {
 
   public void readFields(DataInput in) throws IOException {
     interval_buf = Bytes.readByteArray(in);
-    interval = toInt(interval_buf);
+    interval = toInt(interval_buf, 0, 4);
   }
 
 }

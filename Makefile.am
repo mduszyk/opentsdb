@@ -47,6 +47,7 @@ tsdb_SRC := \
 	src/core/Tags.java	\
 	src/core/TsdbQuery.java	\
 	src/core/WritableDataPoints.java	\
+	src/filter/DownsampleFilter.java	\
 	src/graph/Plot.java	\
 	src/stats/Histogram.java	\
 	src/stats/StatsCollector.java	\
@@ -79,6 +80,8 @@ tsdb_SRC := \
 
 tsdb_DEPS = \
 	$(ASYNCHBASE)	\
+	$(HBASE)	\
+	$(HADOOP)	\
 	$(JCL_OVER_SLF4J)	\
 	$(LOG4J_OVER_SLF4J)	\
 	$(LOGBACK_CLASSIC)	\
