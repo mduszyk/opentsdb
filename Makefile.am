@@ -15,12 +15,13 @@
 
 ACLOCAL_AMFLAGS = -I build-aux
 
-all-am: jar staticroot
+all-am: jar staticroot jar-filter
 
 package = net.opentsdb
 spec_title = OpenTSDB
 spec_vendor = StumbleUpon, Inc.
 jar := tsdb-$(PACKAGE_VERSION).jar
+jar_filter := tsdb-filter-$(PACKAGE_VERSION).jar
 builddata_SRC := src/BuildData.java
 BUILT_SOURCES = $(builddata_SRC)
 nodist_bin_SCRIPTS = tsdb
@@ -173,6 +174,9 @@ $(builddata_SRC): .git/HEAD $(tsdb_SRC) $(top_srcdir)/build-aux/gen_build_data.s
 
 jar: $(jar) .javac-unittests-stamp .gwtc-stamp
 
+jar-filter:
+	$(JAR) cvf $(jar_filter) $(filter_classes)
+
 JAVA_COMPILE := $(JAVAC) $(AM_JAVACFLAGS) -d .
 
 # Sets the shell variable $src to the list of `.java' files we depend on
@@ -288,6 +292,7 @@ $(test_SRC): $(test_DEPS)
 
 classes_with_nested_classes := $(classes:.class=*.class)
 test_classes_with_nested_classes := $(UNITTESTS:.class=*.class)
+filter_classes := "net/opentsdb/filter/DownsampleFilter.class"
 
 # Little set script to make a pretty-ish banner.
 BANNER := sed 's/^.*/  &  /;h;s/./=/g;p;x;p;x'
@@ -360,6 +365,7 @@ mostlyclean-local:
 clean-local:
 	rm -f $(jar) tsdb
 	rm -rf $(JAVADOC_DIR)
+	rm -f $(jar_filter)
 
-.PHONY: jar doc check gwtc gwtdev printdeps staticroot gwttsd
+.PHONY: jar doc check gwtc gwtdev printdeps staticroot gwttsd jar-filter
 include third_party/include.mk
