@@ -26,41 +26,46 @@ public class DownsampleFilter extends FilterBase {
   
   private byte[] interval_buf;  
   private int interval;
-  private int lastDelta;
+  private int skip;
   
   public DownsampleFilter() {}
 
   public DownsampleFilter(byte[] interval_buf) {
     this.interval_buf = interval_buf;
-    interval = toInt(interval_buf, 0, 4);
-    lastDelta = 0;
+    interval = toInt(interval_buf);
+    skip = 0;
   }
   
   public void reset() {
-    lastDelta = 0;
+    skip = 0;
   }
   
   /**
    * Get int from big endian
    */
-  private int toInt(byte[] buf, int i, int j) {
+  private int toInt(byte[] buf) {
     int val = 0;
-    for (int k = i; k < j; k++)
-      val = (val << 8) | (buf[k] & 0xFF);
+    val = (val << 8) | (buf[0] & 0xFF);
+    val = (val << 8) | (buf[1] & 0xFF);
+    val = (val << 8) | (buf[2] & 0xFF);
+    val = (val << 8) | (buf[3] & 0xFF);
     return val;
   }
 
   @Override
   public ReturnCode filterKeyValue(KeyValue v) {
     if (v.getQualifierLength() > 0) {
-      int offset = v.getQualifierOffset();
       // read big endian qualifier bytes into int variable
-      int delta = toInt(v.getBuffer(), offset, offset + 2);
+      int offset = v.getQualifierOffset();
+      byte[] buf = v.getBuffer();
+      int delta = 0;
+      delta = (delta << 8) | (buf[offset] & 0xFF);
+      delta = (delta << 8) | (buf[offset + 1] & 0xFF);
       // get rid of flag bits
       delta = (int) ((delta & 0xFFFFFFFF) >>> FLAG_BITS);
-      
-      if (lastDelta + interval < delta) {
-          lastDelta = delta;
+      //System.out.println("delta: " + delta + ", interval: " + interval + ", skip: " + skip);
+      if (skip < delta) {
+          skip = delta + interval;
           return ReturnCode.INCLUDE;
       }
     }
@@ -93,7 +98,7 @@ public class DownsampleFilter extends FilterBase {
 
   public void readFields(DataInput in) throws IOException {
     interval_buf = Bytes.readByteArray(in);
-    interval = toInt(interval_buf, 0, 4);
+    interval = toInt(interval_buf);
   }
 
 }
