@@ -65,7 +65,7 @@ public class DownsampleFilter extends FilterBase {
       }
     }
     
-    return ReturnCode.SKIP;
+    return ReturnCode.NEXT_COL;
   }
   
   public byte[] toByteArray() {
