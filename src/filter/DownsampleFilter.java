@@ -66,8 +66,8 @@ public class DownsampleFilter extends FilterBase {
       delta = (delta << 8) | (buf[offset + 1] & 0xFF);
       // get rid of flag bits
       delta = (int) ((delta & 0xFFFFFFFF) >>> FLAG_BITS);
-      //System.out.println("delta: " + delta + ", interval: " + interval + ", skip: " + skip);
-      if (skip < delta) {
+      System.out.println("delta: " + delta + ", interval: " + interval + ", skip: " + skip);
+      if (skip <= delta) {
         skip = delta + interval;
         jump = true;
         return ReturnCode.INCLUDE;
@@ -82,8 +82,8 @@ public class DownsampleFilter extends FilterBase {
   }
   
   public KeyValue getNextKeyHint(KeyValue kv) {
-    //System.out.println("skip: " + skip);
-    short qual = (short) (skip << FLAG_BITS);
+    System.out.println("hint skip: " + skip);
+    short qual = (short) ((skip + 1) << FLAG_BITS);
     byte[] qualifier = new byte[2];
     qualifier[0] = (byte) (qual >>> 8);
     qualifier[1] = (byte) (qual & 0xFF);
