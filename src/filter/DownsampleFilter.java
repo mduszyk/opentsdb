@@ -27,6 +27,7 @@ public class DownsampleFilter extends FilterBase {
   private byte[] interval_buf;  
   private int interval;
   private int skip;
+  private boolean jump;
   
   public DownsampleFilter() {}
 
@@ -34,10 +35,12 @@ public class DownsampleFilter extends FilterBase {
     this.interval_buf = interval_buf;
     interval = toInt(interval_buf);
     skip = 0;
+    jump = false;
   }
   
   public void reset() {
     skip = 0;
+    jump = false;
   }
   
   /**
@@ -45,7 +48,7 @@ public class DownsampleFilter extends FilterBase {
    */
   private int toInt(byte[] buf) {
     int val = 0;
-    val = (val << 8) | (buf[0] & 0xFF);
+    val = val | (buf[0] & 0xFF);
     val = (val << 8) | (buf[1] & 0xFF);
     val = (val << 8) | (buf[2] & 0xFF);
     val = (val << 8) | (buf[3] & 0xFF);
@@ -59,18 +62,32 @@ public class DownsampleFilter extends FilterBase {
       int offset = v.getQualifierOffset();
       byte[] buf = v.getBuffer();
       int delta = 0;
-      delta = (delta << 8) | (buf[offset] & 0xFF);
+      delta = delta | (buf[offset] & 0xFF);
       delta = (delta << 8) | (buf[offset + 1] & 0xFF);
       // get rid of flag bits
       delta = (int) ((delta & 0xFFFFFFFF) >>> FLAG_BITS);
       //System.out.println("delta: " + delta + ", interval: " + interval + ", skip: " + skip);
       if (skip < delta) {
-          skip = delta + interval;
-          return ReturnCode.INCLUDE;
+        skip = delta + interval;
+        jump = true;
+        return ReturnCode.INCLUDE;
+      }
+      if (jump) {
+        jump = false;
+        return ReturnCode.SEEK_NEXT_USING_HINT;
       }
     }
     
     return ReturnCode.NEXT_COL;
+  }
+  
+  public KeyValue getNextKeyHint(KeyValue kv) {
+    //System.out.println("skip: " + skip);
+    short qual = (short) (skip << FLAG_BITS);
+    byte[] qualifier = new byte[2];
+    qualifier[0] = (byte) (qual >>> 8);
+    qualifier[1] = (byte) (qual & 0xFF);
+    return KeyValue.createFirstOnRow(kv.getRow(), kv.getFamily(), qualifier);
   }
   
   public byte[] toByteArray() {
