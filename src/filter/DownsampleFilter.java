@@ -89,7 +89,8 @@ public class DownsampleFilter extends FilterBase {
   
   public KeyValue getNextKeyHint(KeyValue kv) {
     //System.out.println("hint skip: " + skip);
-    qual = (short) ((skip + 1) << FLAG_BITS);
+    // 0xB flags
+    qual = (short) ((skip + 1) << FLAG_BITS | 0xB);
     qualifier[0] = (byte) (qual >>> 8);
     qualifier[1] = (byte) (qual & 0xFF);
     return KeyValue.createFirstOnRow(kv.getRow(), kv.getFamily(), qualifier);
