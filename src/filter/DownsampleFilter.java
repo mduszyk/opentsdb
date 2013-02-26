@@ -29,6 +29,12 @@ public class DownsampleFilter extends FilterBase {
   private int skip;
   private boolean jump;
   
+  private int offset;
+  private byte[] buf;
+  private int delta;
+  private short qual;
+  private byte[] qualifier = new byte[2];
+  
   public DownsampleFilter() {}
 
   public DownsampleFilter(byte[] interval_buf) {
@@ -57,11 +63,15 @@ public class DownsampleFilter extends FilterBase {
 
   @Override
   public ReturnCode filterKeyValue(KeyValue v) {
-    if (v.getQualifierLength() > 0) {
+    if (jump) {
+      jump = false;
+      return ReturnCode.SEEK_NEXT_USING_HINT;
+    }
+    //if (v.getQualifierLength() > 0) {
       // read big endian qualifier bytes into int variable
-      int offset = v.getQualifierOffset();
-      byte[] buf = v.getBuffer();
-      int delta = 0;
+      offset = v.getQualifierOffset();
+      buf = v.getBuffer();
+      delta = 0;
       delta = delta | (buf[offset] & 0xFF);
       delta = (delta << 8) | (buf[offset + 1] & 0xFF);
       // get rid of flag bits
@@ -72,19 +82,14 @@ public class DownsampleFilter extends FilterBase {
         jump = true;
         return ReturnCode.INCLUDE;
       }
-      if (jump) {
-        jump = false;
-        return ReturnCode.SEEK_NEXT_USING_HINT;
-      }
-    }
+    //}
     
     return ReturnCode.NEXT_COL;
   }
   
   public KeyValue getNextKeyHint(KeyValue kv) {
     //System.out.println("hint skip: " + skip);
-    short qual = (short) ((skip + 1) << FLAG_BITS);
-    byte[] qualifier = new byte[2];
+    qual = (short) ((skip + 1) << FLAG_BITS);
     qualifier[0] = (byte) (qual >>> 8);
     qualifier[1] = (byte) (qual & 0xFF);
     return KeyValue.createFirstOnRow(kv.getRow(), kv.getFamily(), qualifier);
