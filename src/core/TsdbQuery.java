@@ -37,6 +37,8 @@ import net.opentsdb.stats.Histogram;
 import net.opentsdb.uid.NoSuchUniqueId;
 import net.opentsdb.uid.NoSuchUniqueName;
 
+import net.opentsdb.filter.DownsampleFilter;
+
 /**
  * Non-synchronized implementation of {@link Query}.
  */
@@ -321,7 +323,7 @@ final class TsdbQuery implements Query {
                                             spans.values(),
                                             rate,
                                             aggregator,
-                                            sample_interval, downsampler);
+                                            sample_interval, null);
       return new SpanGroup[] { group };
     }
 
@@ -369,7 +371,7 @@ final class TsdbQuery implements Query {
       if (thegroup == null) {
         thegroup = new SpanGroup(tsdb, getScanStartTime(), getScanEndTime(),
                                  null, rate, aggregator,
-                                 sample_interval, downsampler);
+                                 sample_interval, null);
         // Copy the array because we're going to keep `group' and overwrite
         // its contents.  So we want the collection to have an immutable copy.
         final byte[] group_copy = new byte[group.length];
@@ -408,8 +410,20 @@ final class TsdbQuery implements Query {
     final Scanner scanner = tsdb.client.newScanner(tsdb.table);
     scanner.setStartKey(start_row);
     scanner.setStopKey(end_row);
+    byte[] tag_filter = null;
     if (tags.size() > 0 || group_bys != null) {
-      createAndSetFilter(scanner);
+      tag_filter = createTagFilter(scanner);
+    }
+    byte[] downsample_filter = null;
+    if (sample_interval > 0) {
+      downsample_filter = createDownsampleFilter();
+    }
+    if (tag_filter != null && downsample_filter != null) {
+      scanner.setFilterList(tag_filter, downsample_filter);
+    } else if (tag_filter != null) {
+      scanner.setFilter(tag_filter);
+    } else if (downsample_filter != null) {
+      scanner.setFilter(downsample_filter);  
     }
     scanner.setFamily(TSDB.FAMILY);
     return scanner;
@@ -452,7 +466,7 @@ final class TsdbQuery implements Query {
    * server-side filter that matches a regular expression on the row key.
    * @param scanner The scanner on which to add the filter.
    */
-  void createAndSetFilter(final Scanner scanner) {
+  byte[] createTagFilter(final Scanner scanner) {
     if (group_bys != null) {
       Collections.sort(group_bys, Bytes.MEMCMP);
     }
@@ -510,8 +524,15 @@ final class TsdbQuery implements Query {
     } while (tag != group_by);  // Stop when they both become null.
     // Skip any number of tags before the end.
     buf.append("(?:.{").append(tagsize).append("})*$");
-    scanner.setKeyRegexp(buf.toString(), CHARSET);
-   }
+    //scanner.setKeyRegexp(buf.toString(), CHARSET);
+    return scanner.getKeyRegexp(buf.toString(), CHARSET);
+  }
+  
+  byte[] createDownsampleFilter() {
+    byte[] interval_buf = new byte[4];
+    Bytes.setInt(interval_buf, sample_interval, 0);
+    return new DownsampleFilter(interval_buf).toByteArray();
+  }
 
   /**
    * Helper comparison function to compare tag name IDs.
