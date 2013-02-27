@@ -32,8 +32,8 @@ public class DownsampleFilter extends FilterBase {
   private int offset;
   private byte[] buf;
   private int delta;
-  private short qual;
-  private byte[] qualifier = new byte[2];
+  private int qual;
+  private byte[] qualifier = new byte[4];
   
   public DownsampleFilter() {}
 
@@ -74,6 +74,8 @@ public class DownsampleFilter extends FilterBase {
       delta = 0;
       delta = delta | (buf[offset] & 0xFF);
       delta = (delta << 8) | (buf[offset + 1] & 0xFF);
+      delta = (delta << 8) | (buf[offset + 2] & 0xFF);
+      delta = (delta << 8) | (buf[offset + 3] & 0xFF);
       // get rid of flag bits
       delta = (int) ((delta & 0xFFFFFFFF) >>> FLAG_BITS);
       //System.out.println("delta: " + delta + ", interval: " + interval + ", skip: " + skip);
@@ -90,9 +92,11 @@ public class DownsampleFilter extends FilterBase {
   public KeyValue getNextKeyHint(KeyValue kv) {
     //System.out.println("hint skip: " + skip);
     // 0xB flags
-    qual = (short) ((skip + 1) << FLAG_BITS | 0xB);
-    qualifier[0] = (byte) (qual >>> 8);
-    qualifier[1] = (byte) (qual & 0xFF);
+    qual = (int) ((skip + 1) << FLAG_BITS | 0xB);
+    qualifier[0] = (byte) (qual >>> 24);
+    qualifier[1] = (byte) (qual >>> 16);
+    qualifier[2] = (byte) (qual >>> 8);
+    qualifier[3] = (byte) (qual & 0xFF);
     return KeyValue.createFirstOnRow(kv.getRow(), kv.getFamily(), qualifier);
   }
   
